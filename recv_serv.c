@@ -6,6 +6,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -55,6 +56,7 @@ int handle_client(int sock) {
         argsptr += bytes_wrote;
     }
     printf("%s: send reply: %" PRId32 "\n", __func__, result);
+    exit(0);
 out:
     close(sock);
     return err;
@@ -63,6 +65,8 @@ out:
 int main(int argc, char **argv) {
     int ret = 0;
     int listen_sock;
+    pid_t wpid = 0;
+    int status = 0;
     struct sockaddr_un local;
 
     listen_sock = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -107,6 +111,20 @@ int main(int argc, char **argv) {
         if(newPr == 0) {
             printf("New process!\n");
             handle_client(sock);
+            exit(0);
+        }
+        if(newPr <0) {
+            perror("no_child");
+            exit(4);
+        }
+
+        wpid = waitpid(-1, &status, WNOHANG);
+        if(WIFEXITED(status)) {
+            printf("Child process ended normally.\n");
+            close(sock);
+        } else {
+            printf("Something wrong with child process!\n");
+            close(sock);
         }
 
     }
